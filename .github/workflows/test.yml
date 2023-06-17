@@ -20,7 +20,11 @@ jobs:
     - run: go install github.com/letsencrypt/pebble/...@latest
 
     - name: Run unit tests
-      run: make test
+      run: |
+        export PATH=$PATH:$(go env GOPATH)/bin
+        make test
 
     - name: Run acceptance tests
-      run: make testacc
+      run: |
+        export PATH=$PATH:$(go env GOPATH)/bin
+        make testacc

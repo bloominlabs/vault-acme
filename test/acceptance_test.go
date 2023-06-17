@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -69,7 +70,6 @@ func TestVault(t *testing.T) {
 		}
 		vault.Process.Wait()
 	})
-	time.Sleep(2*time.Second)
 
 	config := api.DefaultConfig()
 	config.Address = "http://127.0.0.1:8200"
@@ -78,6 +78,25 @@ func TestVault(t *testing.T) {
 	client.SetToken("foo")
 
 	logical := client.Logical()
+	eventually := assert.Eventually(t, func() bool {
+		resp, err := client.Sys().Health()
+		fmt.Println("=====================================")
+		fmt.Println("=====================================")
+		fmt.Println("=====================================")
+		fmt.Println("=====================================")
+
+		fmt.Println(resp, err)
+		if err != nil {
+			return false
+		}
+
+		return resp.Initialized
+	}, time.Second*60, time.Millisecond*100, "vault never initialized")
+
+	if !eventually {
+		t.Fatal()
+	}
+
 	b, err := ioutil.ReadFile("../build/acme")
 	require.NoError(t, err)
 	sum := sha256.Sum256(b)
@@ -168,6 +187,13 @@ func TestVault(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+	_, err = logical.Write(
+		"acme/tidy",
+		map[string]interface{}{},
+	)
+	require.NoError(t, err)
+	// TODO: dont hard code
+	time.Sleep(1 * time.Second)
 	status = getCertificateStatus(t, url)
 	require.Equal(t, "Revoked", status)
 

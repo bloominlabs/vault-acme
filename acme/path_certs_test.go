@@ -3,7 +3,7 @@ package acme
 import (
 	"context"
 	"crypto/tls"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -64,7 +64,7 @@ func TestExplicitProviderConfiguration(t *testing.T) {
 	resp, err := b.HandleRequest(context.Background(), req)
 	require.Error(t, err, "fork/exec /dev/null: permission denied")
 	require.Equal(t, map[string]interface{}{
-		"error": "Failed to validate certificate signing request: error: one or more domains had a problem:\n[sentry.lenstra.fr] [sentry.lenstra.fr] acme: error presenting token: fork/exec /dev/null: permission denied\n",
+		"error": "Failed to validate certificate signing request: error: one or more domains had a problem:\n[sentry.lenstra.fr] [sentry.lenstra.fr] acme: error presenting token: exec: fork/exec /dev/null: permission denied\n",
 	}, resp.Data)
 }
 
@@ -135,6 +135,15 @@ func checkRevokeCert(t *testing.T, b logical.Backend, storage logical.Storage, f
 	if err != nil {
 		t.Fatal(err)
 	}
+	tidyReq := &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "tidy",
+		Storage:   storage,
+	}
+	makeRequest(t, b, tidyReq, "")
+
+	// TODO: don't use hardcoded time, instead lookup the tidy state
+	time.Sleep(time.Second * 1)
 
 	// Checking the OCSP status was not working for tests
 	err = client.Certificate.Revoke([]byte(second.Data["cert"].(string)))
@@ -214,7 +223,7 @@ func checkCertificate(t *testing.T, resp *logical.Response) {
 		}
 	}
 	if HTTPResp != nil {
-		body, err := ioutil.ReadAll(HTTPResp.Body)
+		body, err := io.ReadAll(HTTPResp.Body)
 		if err != nil {
 			t.Fatal(err)
 		}
