@@ -15,7 +15,7 @@ jobs:
       uses: bloominlabs/setup-hashicorp-releases@v2
       with:
         package: vault
-        version: '^1.13'
+        version: '1.13.*'
 
     - run: go install github.com/letsencrypt/pebble/...@latest
 
