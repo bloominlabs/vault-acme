@@ -1,3 +1,11 @@
+## 0.0.10
+### June 25, 2023
+
+NEW FEATURES:
+
+* add the `tidy` endpoint that cleans up the cache periodically instead of when no one is using a given certificate
+
+
 ## 0.0.9
 ### April 22, 2022
 
