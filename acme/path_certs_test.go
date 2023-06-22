@@ -63,9 +63,9 @@ func TestExplicitProviderConfiguration(t *testing.T) {
 	}
 	resp, err := b.HandleRequest(context.Background(), req)
 	require.Error(t, err, "fork/exec /dev/null: permission denied")
-	require.Equal(t, resp.Data, map[string]interface{}{
-		"error": "Failed to validate certificate signing request: error: one or more domains had a problem:\n[sentry.lenstra.fr] [sentry.lenstra.fr] acme: error presenting token: fork/exec /dev/null: permission denied\n",
-	})
+	require.Equal(t, map[string]interface{}{
+		"error": "Failed to validate certificate signing request: error: one or more domains had a problem:\n[sentry.lenstra.fr] [sentry.lenstra.fr] acme: error presenting token: exec: fork/exec /dev/null: permission denied\n",
+	}, resp.Data)
 }
 
 func checkCreatingCerts(t *testing.T, b logical.Backend, storage logical.Storage) (*logical.Response, *logical.Response) {
@@ -202,15 +202,15 @@ func checkCertificate(t *testing.T, resp *logical.Response) {
 	if err == nil {
 		t.Fatal("Was expecting error but got none.")
 	}
-	if err.Error() != "Get \"https://example.com\": x509: certificate is valid for sentry.lenstra.fr, grafana.lenstra.fr, not example.com" && err.Error() != `Get "https://example.com": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
+	if err.Error() != "Get \"https://example.com\": tls: failed to verify certificate: x509: certificate is valid for sentry.lenstra.fr, grafana.lenstra.fr, not example.com" && err.Error() != `Get "https://example.com": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
 		t.Fatalf("Got wrong error: %s", err.Error())
 	}
 
 	HTTPResp, err := http.Get("https://sentry.lenstra.fr")
 	if err != nil {
 		// This is expected as the intermediate test cert may not be installed
-		if err.Error() != "Get \"https://sentry.lenstra.fr\": x509: certificate signed by unknown authority" && err.Error() != `Get "https://sentry.lenstra.fr": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
-			t.Fatalf("%s", err.Error())
+		if err.Error() != "Get \"https://sentry.lenstra.fr\": tls: failed to verify certificate: x509: certificate signed by unknown authority" && err.Error() != `Get "https://sentry.lenstra.fr": x509: “sentry.lenstra.fr” certificate is not standards compliant` {
+			t.Fatalf("Got wrong error: %s", err.Error())
 		}
 	}
 	if HTTPResp != nil {
