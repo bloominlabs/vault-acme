@@ -27,6 +27,7 @@ build:
 
 test:
     FROM +deps
+    COPY --dir ./test .
     COPY --dir ./cmd .
     COPY --dir ./acme .
     RUN CGO_ENABLED=0 go test ./acme
@@ -43,11 +44,12 @@ release:
     FROM +deps
     ARG GOX_OS='linux darwin windows freebsd openbsd solaris'
     RUN go install github.com/mitchellh/gox@HEAD
+    RUN apt update && apt install zip -y
     COPY --dir ./cmd .
     COPY --dir ./acme .
     RUN CGO_ENABLED=0 gox -os="$GOX_OS" -arch='386 amd64 arm arm64' -osarch='!darwin/arm !darwin/386' -output 'bin/{{.OS}}_{{.Arch}}/acme-plugin' ./cmd/acme
     RUN CGO_ENABLED=0 gox -os="$GOX_OS" -arch='386 amd64 arm arm64' -osarch='!darwin/arm !darwin/386' -output 'bin/{{.OS}}_{{.Arch}}/sidecar' ./cmd/sidecar
-    RUN for arch in ./bin/*; do zip --junk-paths $$arch.zip $$arch/*; done
+    RUN for arch in ./bin/*; do zip --junk-paths $arch.zip $arch/*; done
     RUN sha256sum ./bin/*.zip > ./bin/vault-acme_SHA256SUMS
 
     SAVE ARTIFACT ./bin /release AS LOCAL ./bin
