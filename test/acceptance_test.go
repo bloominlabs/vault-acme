@@ -80,12 +80,6 @@ func TestVault(t *testing.T) {
 	logical := client.Logical()
 	eventually := assert.Eventually(t, func() bool {
 		resp, err := client.Sys().Health()
-		fmt.Println("=====================================")
-		fmt.Println("=====================================")
-		fmt.Println("=====================================")
-		fmt.Println("=====================================")
-
-		fmt.Println(resp, err)
 		if err != nil {
 			return false
 		}
@@ -215,8 +209,6 @@ func getCertificateStatus(t *testing.T, url string) string {
 	url = strings.ReplaceAll(url, "14000/certZ", "15000/cert-status-by-serial")
 
 	resp, err := http.Get(url)
-	fmt.Println("googogogo")
-	time.Sleep(time.Second * 120)
 	require.NoError(t, err)
 
 	var data map[string]interface{}

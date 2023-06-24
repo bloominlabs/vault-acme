@@ -8,42 +8,22 @@ jobs:
     name: Run tests and publish release
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
-
-    - name: Install vault
-      uses: bloominlabs/setup-hashicorp-releases@v2
-      with:
-        package: vault
-        version: '^1.14'
-
-    - uses: actions/checkout@v3
-
-    - run: go install github.com/letsencrypt/pebble/...@HEAD
-
-    - name: Run unit tests
-      run: make test
-
-    - name: Run acceptance tests
-      run: |
-        export PATH=$PATH:$(go env GOPATH)/bin
-        make testacc
-
-    - name: Build all binaries
-      run: |
-        go install github.com/mitchellh/gox@HEAD
-        make all archives
-
-    - name: Create Release
-      id: create_release
-      uses: softprops/action-gh-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        name: Release ${{ github.ref }}
-        draft: false
-        prerelease: true
-        files: |
-          ./build/*.zip
-          ./build/vault-acme_SHA256SUMS
+      - uses: actions/checkout@v3
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: earthly +test
+      - run: earthly +testacc
+      - run: earthly +release
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: Release ${{ github.ref }}
+          draft: false
+          prerelease: true
+          files: |
+            ./bin/*.zip
+            ./bin/vault-acme_SHA256SUMS
