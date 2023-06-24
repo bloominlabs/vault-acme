@@ -1,3 +1,2 @@
-plugin_directory = "./../build"
-
-log_level = "debug"
+plugin_directory = "./../bin"
+# log_level = "debug"

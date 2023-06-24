@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -97,7 +97,7 @@ func TestVault(t *testing.T) {
 		t.Fatal()
 	}
 
-	b, err := ioutil.ReadFile("../build/acme")
+	b, err := os.ReadFile("../bin/acme")
 	require.NoError(t, err)
 	sum := sha256.Sum256(b)
 
@@ -215,10 +215,12 @@ func getCertificateStatus(t *testing.T, url string) string {
 	url = strings.ReplaceAll(url, "14000/certZ", "15000/cert-status-by-serial")
 
 	resp, err := http.Get(url)
+	fmt.Println("googogogo")
+	time.Sleep(time.Second * 120)
 	require.NoError(t, err)
 
 	var data map[string]interface{}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	err = json.Unmarshal(b, &data)
 	require.NoError(t, err)

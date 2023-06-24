@@ -16,11 +16,11 @@ jobs:
       uses: bloominlabs/setup-hashicorp-releases@v2
       with:
         package: vault
-        version: '^1.13'
+        version: '^1.14'
 
     - uses: actions/checkout@v3
 
-    - run: go install github.com/letsencrypt/pebble/...@latest
+    - run: go install github.com/letsencrypt/pebble/...@HEAD
 
     - name: Run unit tests
       run: make test
@@ -32,7 +32,7 @@ jobs:
 
     - name: Build all binaries
       run: |
-        go install github.com/mitchellh/gox@latest
+        go install github.com/mitchellh/gox@HEAD
         make all archives
 
     - name: Create Release

@@ -184,44 +184,13 @@ func (b *backend) startTidyOperation(req *logical.Request) {
 				}
 
 				ceKey := cachePrefix + key
-				ce, err := b.cache.GetCacheEntry(ctx, req.Storage, ceKey)
-				if err != nil {
-					keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: %w", ceKey, err))
-					continue
-				}
-
-				if ce.Users > 0 {
-					b.Logger().Debug("certificate has active users. skipping...", "certificateName", ceKey, "users", ce.Users)
-					continue
-				}
-
-				a, err := getAccount(ctx, req.Storage, accountsPrefix+ce.Account)
-				if err != nil {
-					keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: failed to get account %s: %w", ceKey, ce.Account, err))
-					continue
-				}
-				if a == nil {
-					keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: account %s not found", ceKey, ce.Account))
-					continue
-				}
-				client, err := a.getClient()
-				if err != nil {
-					keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: failed to get lego client: %w", ceKey, err))
-					continue
-				}
-
+				ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 				b.cache.Lock()
-				err = b.cache.Delete(ctx, req.Storage, ceKey)
+				err := b.tidyKey(ctx, req, ceKey)
 				b.cache.Unlock()
+				cancel()
 				if err != nil {
-					keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: failed to delete cache entry: %w", ceKey, err))
-					continue
-				}
-
-				err = client.Certificate.Revoke(ce.Cert)
-				if err != nil {
-					keyErrors = multierror.Append(fmt.Errorf("failed to tidy %s: failed to revoke the certificate: %w", ceKey, err))
-					continue
+					keyErrors = multierror.Append(keyErrors, fmt.Errorf("failed to tidy key %s: %w", ceKey, err))
 				}
 			}
 
@@ -248,6 +217,42 @@ func (b *backend) startTidyOperation(req *logical.Request) {
 		}
 
 	}()
+}
+
+func (b *backend) tidyKey(ctx context.Context, req *logical.Request, key string) error {
+	ce, err := b.cache.GetCacheEntry(ctx, req.Storage, key)
+	if err != nil {
+		return fmt.Errorf("failed to tidy %s: %w", key, err)
+	}
+
+	if ce.Users > 0 {
+		b.Logger().Debug("certificate has active users. skipping...", "certificateName", key, "users", ce.Users)
+		return nil
+	}
+
+	a, err := getAccount(ctx, req.Storage, accountsPrefix+ce.Account)
+	if err != nil {
+		return fmt.Errorf("failed to tidy %s: failed to get account %s: %w", key, ce.Account, err)
+	}
+	if a == nil {
+		return fmt.Errorf("failed to tidy %s: account %s not found", key, ce.Account)
+	}
+	client, err := a.getClient()
+	if err != nil {
+		return fmt.Errorf("failed to tidy %s: failed to get lego client: %w", key, err)
+	}
+
+	err = b.cache.Delete(ctx, req.Storage, key)
+	b.cache.Unlock()
+	if err != nil {
+		return fmt.Errorf("failed to tidy %s: failed to delete cache entry: %w", key, err)
+	}
+
+	err = client.Certificate.Revoke(ce.Cert)
+	if err != nil {
+		return fmt.Errorf("failed to tidy %s: failed to revoke the certificate: %w", key, err)
+	}
+	return nil
 }
 
 func (b *backend) pathTidyStatusRead(_ context.Context, _ *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
