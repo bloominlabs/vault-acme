@@ -30,7 +30,7 @@ test:
     COPY --dir ./test .
     COPY --dir ./cmd .
     COPY --dir ./acme .
-    RUN CGO_ENABLED=0 go test ./acme
+    RUN CGO_ENABLED=0 go test ./acme -test.v
 
 testacc:
     FROM +deps

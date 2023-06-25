@@ -3,8 +3,8 @@ TEST_ARGS :=
 
 .PHONY: build
 build:
-	@mkdir -p build
-	CGO_ENABLED=0 go build -o build ./...
+	@mkdir -p bin
+	CGO_ENABLED=0 go build -o bin ./...
 
 .PHONY: fmt
 fmt:

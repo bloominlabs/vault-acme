@@ -243,7 +243,6 @@ func (b *backend) tidyKey(ctx context.Context, req *logical.Request, key string)
 	}
 
 	err = b.cache.Delete(ctx, req.Storage, key)
-	b.cache.Unlock()
 	if err != nil {
 		return fmt.Errorf("failed to tidy %s: failed to delete cache entry: %w", key, err)
 	}
