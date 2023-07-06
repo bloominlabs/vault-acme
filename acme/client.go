@@ -37,117 +37,116 @@ func getCertFromACMEProvider(ctx context.Context, logger log.Logger, req *logica
 	return client.Certificate.Obtain(request)
 }
 
+func getDNSProvider(ctx context.Context, provider string, providerConfiguration map[string]string) (challenge.Provider, error) {
+	var cp challenge.Provider
+	switch provider {
+	case "exec":
+		config := exec.NewDefaultConfig()
+		values, err := env.Get(exec.EnvPath)
+		if err != nil {
+			return cp, fmt.Errorf("exec: %w", err)
+		}
+
+		config.Program = values[exec.EnvPath]
+		config.Mode = os.Getenv(exec.EnvMode)
+
+		if providerConfiguration[exec.EnvMode] != "" {
+			config.Mode = providerConfiguration[exec.EnvMode]
+		}
+		if providerConfiguration[exec.EnvPath] != "" {
+			config.Program = providerConfiguration[exec.EnvPath]
+		}
+		if providerConfiguration[exec.EnvPropagationTimeout] != "" {
+			dur, err := time.ParseDuration(providerConfiguration[exec.EnvPropagationTimeout])
+			if err != nil {
+				return cp, fmt.Errorf("failed to parse '%s': %w", exec.EnvPropagationTimeout, err)
+			}
+			config.PropagationTimeout = dur
+		}
+		if providerConfiguration[exec.EnvPollingInterval] != "" {
+			dur, err := time.ParseDuration(providerConfiguration[exec.EnvPollingInterval])
+			if err != nil {
+				return cp, fmt.Errorf("failed to parse '%s': %w", exec.EnvPollingInterval, err)
+			}
+			config.PollingInterval = dur
+		}
+		if providerConfiguration[exec.EnvSequenceInterval] != "" {
+			dur, err := time.ParseDuration(providerConfiguration[exec.EnvSequenceInterval])
+			if err != nil {
+				return cp, fmt.Errorf("failed to parse '%s': %w", exec.EnvSequenceInterval, err)
+			}
+			config.SequenceInterval = dur
+		}
+
+		return exec.NewDNSProviderConfig(config)
+	case "cloudflare":
+		config := cloudflare.NewDefaultConfig()
+		if providerConfiguration["CLOUDFLARE_EMAIL"] != "" {
+			config.AuthEmail = providerConfiguration["CLOUDFLARE_EMAIL"]
+		}
+		if providerConfiguration["CF_API_EMAIL"] != "" {
+			config.AuthEmail = providerConfiguration["CF_API_EMAIL"]
+		}
+		if providerConfiguration["CLOUDFLARE_API_KEY"] != "" {
+			config.AuthKey = providerConfiguration["CLOUDFLARE_API_KEY"]
+		}
+		if providerConfiguration["CF_API_KEY"] != "" {
+			config.AuthKey = providerConfiguration["CF_API_KEY"]
+		}
+		if providerConfiguration["CLOUDFLARE_DNS_API_TOKEN"] != "" {
+			config.AuthToken = providerConfiguration["CLOUDFLARE_DNS_API_TOKEN"]
+		}
+		if providerConfiguration["CF_DNS_API_TOKEN"] != "" {
+			config.AuthToken = providerConfiguration["CF_DNS_API_TOKEN"]
+		}
+		if providerConfiguration["CLOUDFLARE_ZONE_API_TOKEN"] != "" {
+			config.ZoneToken = providerConfiguration["CLOUDFLARE_ZONE_API_TOKEN"]
+		}
+		if providerConfiguration["CF_ZONE_API_TOKEN"] != "" {
+			config.ZoneToken = providerConfiguration["CF_ZONE_API_TOKEN"]
+		}
+		if providerConfiguration["CLOUDFLARE_HTTP_TIMEOUT"] != "" {
+			dur, err := time.ParseDuration(providerConfiguration["CLOUDFLARE_HTTP_TIMEOUT"])
+			if err != nil {
+				return cp, fmt.Errorf("failed to parse 'CLOUDFLARE_HTTP_TIMEOUT': %w", err)
+			}
+			config.HTTPClient.Timeout = dur
+		}
+		if providerConfiguration["CLOUDFLARE_POLLING_INTERVAL"] != "" {
+			dur, err := time.ParseDuration(providerConfiguration["CLOUDFLARE_POLLING_INTERVAL"])
+			if err != nil {
+				return cp, fmt.Errorf("failed to parse 'CLOUDFLARE_POLLING_INTERVAL': %w", err)
+			}
+			config.PollingInterval = dur
+		}
+		if providerConfiguration["CLOUDFLARE_PROPAGATION_TIMEOUT"] != "" {
+			dur, err := time.ParseDuration(providerConfiguration["CLOUDFLARE_PROPAGATION_TIMEOUT"])
+			if err != nil {
+				return cp, fmt.Errorf("failed to parse 'CLOUDFLARE_PROPAGATION_TIMEOUT': %w", err)
+			}
+			config.PropagationTimeout = dur
+		}
+		if providerConfiguration["CLOUDFLARE_TTL"] != "" {
+			ttl, err := strconv.Atoi(providerConfiguration["CLOUDFLARE_TTL"])
+			if err != nil {
+				return cp, fmt.Errorf("failed to parse 'CLOUDFLARE_TTL': %w", err)
+			}
+			config.TTL = ttl
+		}
+
+		return cloudflare.NewDNSProviderConfig(config)
+	default:
+		return cp, fmt.Errorf("provider %s is not supported", provider)
+	}
+}
+
 func setupChallengeProviders(ctx context.Context, logger log.Logger, client *lego.Client, a *account, req *logical.Request) error {
 	// DNS-01
 	if a.Provider != "" {
-		var provider challenge.Provider
-		var err error
-		switch a.Provider {
-		case "exec":
-			config := exec.NewDefaultConfig()
-			values, err := env.Get(exec.EnvPath)
-			if err != nil {
-				return fmt.Errorf("exec: %w", err)
-			}
-
-			config.Program = values[exec.EnvPath]
-			config.Mode = os.Getenv(exec.EnvMode)
-
-			if a.ProviderConfiguration[exec.EnvMode] != "" {
-				config.Mode = a.ProviderConfiguration[exec.EnvMode]
-			}
-			if a.ProviderConfiguration[exec.EnvPath] != "" {
-				config.Program = a.ProviderConfiguration[exec.EnvPath]
-			}
-			if a.ProviderConfiguration[exec.EnvPropagationTimeout] != "" {
-				dur, err := time.ParseDuration(a.ProviderConfiguration[exec.EnvPropagationTimeout])
-				if err != nil {
-					return fmt.Errorf("failed to parse '%s': %w", exec.EnvPropagationTimeout, err)
-				}
-				config.PropagationTimeout = dur
-			}
-			if a.ProviderConfiguration[exec.EnvPollingInterval] != "" {
-				dur, err := time.ParseDuration(a.ProviderConfiguration[exec.EnvPollingInterval])
-				if err != nil {
-					return fmt.Errorf("failed to parse '%s': %w", exec.EnvPollingInterval, err)
-				}
-				config.PollingInterval = dur
-			}
-			if a.ProviderConfiguration[exec.EnvSequenceInterval] != "" {
-				dur, err := time.ParseDuration(a.ProviderConfiguration[exec.EnvSequenceInterval])
-				if err != nil {
-					return fmt.Errorf("failed to parse '%s': %w", exec.EnvSequenceInterval, err)
-				}
-				config.SequenceInterval = dur
-			}
-
-			provider, err = exec.NewDNSProviderConfig(config)
-			if err != nil {
-				return err
-			}
-		case "cloudflare":
-			config := cloudflare.NewDefaultConfig()
-			if a.ProviderConfiguration["CLOUDFLARE_EMAIL"] != "" {
-				config.AuthEmail = a.ProviderConfiguration["CF_API_EMAIL"]
-			}
-			if a.ProviderConfiguration["CF_API_EMAIL"] != "" {
-				config.AuthEmail = a.ProviderConfiguration["CF_API_EMAIL"]
-			}
-			if a.ProviderConfiguration["CLOUDFLARE_API_KEY"] != "" {
-				config.AuthKey = a.ProviderConfiguration["CLOUDFLARE_API_KEY"]
-			}
-			if a.ProviderConfiguration["CF_API_KEY"] != "" {
-				config.AuthKey = a.ProviderConfiguration[""]
-			}
-			if a.ProviderConfiguration["CLOUDFLARE_DNS_API_TOKEN"] != "" {
-				config.AuthToken = a.ProviderConfiguration["CLOUDFLARE_DNS_API_TOKEN"]
-			}
-			if a.ProviderConfiguration["CF_DNS_API_TOKEN"] != "" {
-				config.AuthToken = a.ProviderConfiguration["CF_DNS_API_TOKEN"]
-			}
-			if a.ProviderConfiguration["CLOUDFLARE_ZONE_API_TOKEN"] != "" {
-				config.ZoneToken = a.ProviderConfiguration["CLOUDFLARE_ZONE_API_TOKEN"]
-			}
-			if a.ProviderConfiguration["CF_ZONE_API_TOKEN"] != "" {
-				config.ZoneToken = a.ProviderConfiguration["CF_ZONE_API_TOKEN"]
-			}
-			if a.ProviderConfiguration["CLOUDFLARE_HTTP_TIMEOUT"] != "" {
-				dur, err := time.ParseDuration(a.ProviderConfiguration["CLOUDFLARE_HTTP_TIMEOUT"])
-				if err != nil {
-					return fmt.Errorf("failed to parse 'CLOUDFLARE_HTTP_TIMEOUT': %w", err)
-				}
-				config.HTTPClient.Timeout = dur
-			}
-			if a.ProviderConfiguration["CLOUDFLARE_POLLING_INTERVAL"] != "" {
-				dur, err := time.ParseDuration(a.ProviderConfiguration["CLOUDFLARE_POLLING_INTERVAL"])
-				if err != nil {
-					return fmt.Errorf("failed to parse 'CLOUDFLARE_POLLING_INTERVAL': %w", err)
-				}
-				config.PollingInterval = dur
-			}
-			if a.ProviderConfiguration["CLOUDFLARE_PROPAGATION_TIMEOUT"] != "" {
-				dur, err := time.ParseDuration(a.ProviderConfiguration["CLOUDFLARE_PROPAGATION_TIMEOUT"])
-				if err != nil {
-					return fmt.Errorf("failed to parse 'CLOUDFLARE_PROPAGATION_TIMEOUT': %w", err)
-				}
-				config.PropagationTimeout = dur
-			}
-			if a.ProviderConfiguration["CLOUDFLARE_TTL"] != "" {
-				ttl, err := strconv.Atoi(a.ProviderConfiguration["CLOUDFLARE_TTL"])
-				if err != nil {
-					return fmt.Errorf("failed to parse 'CLOUDFLARE_TTL': %w", err)
-				}
-				config.TTL = ttl
-			}
-
-			provider, err = cloudflare.NewDNSProviderConfig(config)
-			if err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("provider %s is not supported", a.Provider)
+		provider, err := getDNSProvider(ctx, a.Provider, a.ProviderConfiguration)
+		if err != nil {
+			return err
 		}
-
 		err = client.Challenge.SetDNS01Provider(
 			provider,
 			dns01.CondOption(len(a.DNSResolvers) > 0, dns01.AddRecursiveNameservers(a.DNSResolvers)),

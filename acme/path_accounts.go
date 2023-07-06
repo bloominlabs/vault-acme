@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-acme/lego/v4/certcrypto"
-	"github.com/go-acme/lego/v4/providers/dns"
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -117,7 +116,7 @@ func (b *backend) accountWrite(ctx context.Context, req *logical.Request, data *
 	ignoreDNSPropagation := data.Get("ignore_dns_propagation").(bool)
 
 	if provider != "" {
-		_, err := dns.NewDNSChallengeProviderByName(provider)
+		_, err := getDNSProvider(ctx, provider, providerConfiguration)
 		if err != nil {
 			return logical.ErrorResponse(fmt.Errorf("failed to find provider: %w", err).Error()), nil
 		}

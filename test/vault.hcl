@@ -1,2 +1,2 @@
 plugin_directory = "./../bin"
-# log_level = "debug"
+log_level        = "debug"
